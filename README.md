@@ -21,11 +21,11 @@ const List0Query = Q(
   {
     Id:'ID',
     Name: 'OData_List0_UnreadableColumnName', /*OData__x0000__x0000__x0000__x0000__x00 */
-    Expanded: TestExpand
+    Expanded: List1Expand
   }
 );
 
-const TestExpand = Q(
+const List1Expand = Q(
   /* If column expanded the source must be column name. */
   'OData_List1_UnreadableExpandedColumnName',
   'SP.Data.List1ListItem',
