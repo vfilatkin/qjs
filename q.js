@@ -20,7 +20,7 @@
       let cName = cNames[i];
       if (typeof cName === 'string')
         return res[cKey] = item[cName];
-      res[cKey] = getItems(cName.$cols, item[cName.$src].results)
+      res[cKey] = getItems(cName[1].$cols, item[cName[0]].results)
     });
     return res;
   }
@@ -41,9 +41,11 @@
     Object.values(cols).forEach(col => {
       if (typeof col === 'string')
         return $sel.push(col);
-      $exp.push(col.$src);
-      Object.values(col.$cols).forEach(exCol => {
-        $sel.push(`${col.$src}/${exCol}`);
+      let exColKey = col[0];
+      let exColData = col[1];
+      $exp.push(col[0]);
+      Object.values(exColData.$cols).forEach(exCol => {
+        $sel.push(`${exColKey}/${exCol}`);
       })
     })
     return [
@@ -56,13 +58,14 @@
     return $select(cols).filter(p => p !== undefined).join('&')
   }
 
-  function Q(src, cols) {
+  function Q(src, cols , type) {
     return {
       $cols: cols,
       $src: src,
+      $type: type,
       get: function (filter) {
         return fetch(
-          `/${CFG.app}/_api/lists(guid'${src}')/items?$filter=Id eq 2379&${Query(cols)}`,
+          `/${CFG.app}/_api/lists(guid'${src}')/items?$filter=${filter}&${Query(cols)}`,
           REQ.GET
         )
           .then(rJSON)
