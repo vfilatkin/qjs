@@ -4,7 +4,7 @@
     <script src="qtest.js"></script>
     <script src="q.js"></script>
     <script>
-      /* Setup test resource */
+      /* Setup test resources */
       const LIST__0__URL = 
       "/myApp/_api/lists(guid'List0-UnreadableId')" +
       "/items?$filter=ID eq 2379&$select=ID,OData_" +
@@ -18,7 +18,19 @@
       "/myApp/_api/lists(guid'List1-UnreadableId')" +
       "/items?$filter=ID eq 123&$select=ID,OData_" +
       "List1_UnreadableColumnName";
+
+      const CONTEXT__URL = '/myApp/_api/contextinfo';
       
+      QResource(resource => resource === CONTEXT__URL, () => {
+        return {
+          d: {
+            GetContextWebInformation: {
+              FormDigestValue: 'bqtoYJgeiMgRtiDW',
+              FormDigestTimeoutSeconds: 1800
+            }
+          }
+        }
+      })
       
       QResource(resource => resource === LIST__0__URL, () => {
         return {
@@ -71,6 +83,16 @@
 
       List0Query.get(`${List0Query.Id} eq 2379`).then(data => console.log(data));
       List1Query.get(`${List1Query.Id} eq 123`).then(data => console.log(data));
+
+      List1Query.post([
+        {ID: 777, OData_List1_UnreadableColumnName: "Ben"},
+      ]);
+
+      List1Query.batch([
+        {ID: 111, OData_List1_UnreadableColumnName: "John"},
+        {ID: 222, OData_List1_UnreadableColumnName: "Jim"} 
+      ]);
+      
     </script>
   </head>
   <body></body>
