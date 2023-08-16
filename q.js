@@ -40,7 +40,6 @@
       .then(r => {
         r = r.d.GetContextWebInformation;
         CFG.digest = r.FormDigestValue;
-        console.log(CFG.digest);
         let t = setTimeout(() => {
           CFG.digest = null;
           clearTimeout(t);
@@ -165,17 +164,39 @@
   /* qType - for batch request only. */
   Q.create = function (ref, data) {
     return {
-      qType: 1,   
+      type: 1,
       ref: ref,
       data: data
     }
   }
+  Q.update = function (ref, id, data) {
+    return {
+      type: 2,
+      ref: ref,
+      id: id,
+      data: data
+    }
+  }
+  Q.delete = function (ref, id, data) {
+    return {
+      type: 3,
+      ref: ref,
+      id: id,
+      data: data
+    }
+  }
+  function prepQEndPoint(Q) {
+    let eP = `/${CFG.app}/_api/lists(guid'${Q.ref.$src}')/items`;
+    return Q.type === 1 ? eP : eP + `(${Q.id})`;
+  }
+
+  function prepQData(Q) {
+    /*TODO: Add headers for UPDATE and DELETE requests.*/
+    return POST(JSON.stringify(reqItem(Q.ref.$cols, Q.data, Q.ref.$type)));
+  }
 
   function post(Q) {
-    let q = () => fetch(
-      `/${CFG.app}/_api/lists(guid'${Q.ref.$src}')/items`,
-      POST(JSON.stringify(reqItem(Q.ref.$cols, Q.data, Q.ref.$type)))
-    )
+    let q = () => fetch(prepQEndPoint(Q), prepQData(Q))
       .then(resJSON)
       .then(r => resItem(Object.keys(Q.ref.$cols), Object.values(Q.ref.$cols), r.d));
     if (CFG.digest) return q();
