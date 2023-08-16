@@ -6,25 +6,24 @@
     digest: null
   }
 
-  const REQ = {
-    GET: () => ({
+  const
+    GET = () => ({
       method: 'GET',
       headers: new Headers({ 'Accept': 'application/json; odata=verbose' }),
       credentials: 'include'
     }),
-    POST: body => ({
+    POST = body => ({
       method: 'POST',
       headers: new Headers({
         'accept': 'application/json; odata=verbose',
         'content-type': 'application/json; odata=verbose',
-        'type': 'POST',
         'contentType': 'application/json;charset=utf-8',
         'X-RequestDigest': CFG.digest,
       }),
       body: body,
       credentials: 'include'
     }),
-    POST__BATCH: (bID, body) => ({
+    POST__BATCH = (bID, body) => ({
       method: 'POST',
       headers: {
         'Accept': 'application/json; odata=verbose',
@@ -32,17 +31,15 @@
         'X-RequestDigest': CFG.digest,
       },
       body: body,
-      credentials: 'same-origin'
-    })
-  }
+      credentials: 'include'
+    });
 
-  function rDigest() {
-    return fetch(`/${CFG.app}/_api/contextinfo`, REQ.POST())
-      .then(rJSON)
+  function reqDigest() {
+    return fetch(`/${CFG.app}/_api/contextinfo`, POST())
+      .then(resJSON)
       .then(r => {
         r = r.d.GetContextWebInformation;
         CFG.digest = r.FormDigestValue;
-        console.log(CFG.digest);
         let t = setTimeout(() => {
           CFG.digest = null;
           clearTimeout(t);
@@ -50,7 +47,7 @@
       })
   }
 
-  function rJSON(resp) {
+  function resJSON(resp) {
     if (resp.ok) {
       return resp.json();
     }
@@ -59,22 +56,35 @@
     }
   }
 
-  function getItem(cKeys, cNames, item) {
+  function resItem(cKeys, cNames, item) {
     let res = {};
     cKeys.forEach((cKey, i) => {
       let cName = cNames[i];
       if (typeof cName === 'string')
         return res[cKey] = item[cName];
-      res[cKey] = getItems(cName[1].$cols, item[cName[0]].results)
+      res[cKey] = resItems(cName[1].$cols, item[cName[0]].results)
     });
     return res;
   }
 
-  function getItems(cols, items) {
+  function resItems(cols, items) {
     let
       cKeys = Object.keys(cols),
       cNames = Object.values(cols);
-    return items.map(item => getItem(cKeys, cNames, item))
+    return items.map(item => resItem(cKeys, cNames, item))
+  }
+
+  function reqItem(cols, item, type) {
+    let req = {}, iKeys = Object.keys(item);
+    iKeys.forEach(key => {
+      return req[cols[key]] = item[key];
+    });
+    req.__metadata = { type: type };
+    return req;
+  }
+
+  function reqItems(cols, items, type) {
+    return items.map(item => reqItem(cols, item, type))
   }
 
   function $select(cols) {
@@ -130,7 +140,8 @@
     w('--changeset_' + cSID + '--');
     w('--batch_' + bID + '--');
 
-    return REQ.POST__BATCH(CFG.digest, bID, body.join('\r\n'));
+    console.log(body.join('\r\n'));
+    return POST__BATCH(bID, body.join('\r\n'));
   }
 
   function optToStr(opt, cols) {
@@ -149,20 +160,29 @@
       get: function (opt) {
         return fetch(
           `/${CFG.app}/_api/lists(guid'${src}')/items${optToStr(opt, this.$cols)}`,
-          REQ.GET()
+          GET()
         )
-          .then(rJSON)
-          .then(r => getItems(this.$cols, r.d.results));
+          .then(resJSON)
+          .then(r => resItems(this.$cols, r.d.results));
       },
       post: function (item) {
-        let q = () => fetch(`/${CFG.app}/_api/lists(guid'${src}')/items`, REQ.POST(JSON.stringify(item)));
+        let q = () => fetch(
+          `/${CFG.app}/_api/lists(guid'${src}')/items`,
+          POST(JSON.stringify(reqItem(this.$cols, item, this.$type)))
+        )
+          .then(resJSON)
+          .then(r => resItem(Object.keys(this.$cols), Object.values(this.$cols), r.d));
         if (CFG.digest) return q();
-        rDigest().then(q);
+        return reqDigest().then(q);
       },
       batch: function (items) {
-        let q = () => fetch(`/${CFG.app}/_api/$batch`, REQ.POST($batch(`/${CFG.app}/_api/lists(guid'${src}')/items`, items)));
+        let q = () => fetch(
+          `/${CFG.app}/_api/$batch`, $batch(`/${CFG.app}/_api/lists(guid'${src}')/items`, reqItems(this.$cols, items, this.$type))
+        )
+          .then(resJSON)
+          .then(r => resItems(this.$cols, r.d.results));
         if (CFG.digest) return q();
-        rDigest().then(q);
+        return reqDigest().then(q);
       },
       ...cols
     }
