@@ -7,19 +7,19 @@
   }
 
   const
-    GET = () => ({
+    GET = {
       method: 'GET',
-      headers: new Headers({ 'Accept': 'application/json; odata=verbose' }),
+      headers: { 'Accept': 'application/json; odata=verbose' },
       credentials: 'include'
-    }),
+    },
     POST = body => ({
       method: 'POST',
-      headers: new Headers({
+      headers: {
         'accept': 'application/json; odata=verbose',
         'content-type': 'application/json; odata=verbose',
         'contentType': 'application/json;charset=utf-8',
         'X-RequestDigest': CFG.digest,
-      }),
+      },
       body: body,
       credentials: 'include'
     }),
@@ -40,6 +40,7 @@
       .then(r => {
         r = r.d.GetContextWebInformation;
         CFG.digest = r.FormDigestValue;
+        console.log(CFG.digest);
         let t = setTimeout(() => {
           CFG.digest = null;
           clearTimeout(t);
@@ -157,35 +158,43 @@
       $cols: cols,
       $src: src,
       $type: type,
-      get: function (opt) {
-        return fetch(
-          `/${CFG.app}/_api/lists(guid'${src}')/items${optToStr(opt, this.$cols)}`,
-          GET()
-        )
-          .then(resJSON)
-          .then(r => resItems(this.$cols, r.d.results));
-      },
-      post: function (item) {
-        let q = () => fetch(
-          `/${CFG.app}/_api/lists(guid'${src}')/items`,
-          POST(JSON.stringify(reqItem(this.$cols, item, this.$type)))
-        )
-          .then(resJSON)
-          .then(r => resItem(Object.keys(this.$cols), Object.values(this.$cols), r.d));
-        if (CFG.digest) return q();
-        return reqDigest().then(q);
-      },
-      batch: function (items) {
-        let q = () => fetch(
-          `/${CFG.app}/_api/$batch`, $batch(`/${CFG.app}/_api/lists(guid'${src}')/items`, reqItems(this.$cols, items, this.$type))
-        )
-          .then(resJSON)
-          .then(r => resItems(this.$cols, r.d.results));
-        if (CFG.digest) return q();
-        return reqDigest().then(q);
-      },
       ...cols
     }
+  }
+
+  /* qType - for batch request only. */
+  Q.create = function (ref, data) {
+    return {
+      qType: 1,   
+      ref: ref,
+      data: data
+    }
+  }
+
+  function post(Q) {
+    let q = () => fetch(
+      `/${CFG.app}/_api/lists(guid'${Q.ref.$src}')/items`,
+      POST(JSON.stringify(reqItem(Q.ref.$cols, Q.data, Q.ref.$type)))
+    )
+      .then(resJSON)
+      .then(r => resItem(Object.keys(Q.ref.$cols), Object.values(Q.ref.$cols), r.d));
+    if (CFG.digest) return q();
+    return reqDigest().then(q);
+  }
+
+  Q.get = function (L, O) {
+    return fetch(
+      `/${CFG.app}/_api/lists(guid'${L.$src}')/items${optToStr(O, L.$cols)}`,
+      GET
+    )
+      .then(resJSON)
+      .then(r => resItems(L.$cols, r.d.results));
+  }
+
+
+  Q.post = function (Q) {
+    if (Q.length) return
+    return post(Q);
   }
 
   Q.config = function (cfg) {
