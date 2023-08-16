@@ -37,22 +37,22 @@
   function reqDigest() {
     return fetch(`/${CFG.app}/_api/contextinfo`, POST())
       .then(resJSON)
-      .then(r => {
-        r = r.d.GetContextWebInformation;
-        CFG.digest = r.FormDigestValue;
+      .then(res => {
+        res = res.d.GetContextWebInformation;
+        CFG.digest = res.FormDigestValue;
         let t = setTimeout(() => {
           CFG.digest = null;
           clearTimeout(t);
-        }, r.FormDigestTimeoutSeconds * 1000)
+        }, res.FormDigestTimeoutSeconds * 1000)
       })
   }
 
-  function resJSON(resp) {
-    if (resp.ok) {
-      return resp.json();
+  function resJSON(res) {
+    if (res.ok) {
+      return res.json();
     }
     else {
-      resp.text().then(e => console.error(JSON.parse(e).error.message.value))
+      res.text().then(e => console.error(JSON.parse(e).error.message.value))
     }
   }
 
@@ -162,10 +162,10 @@
   }
 
   /* qType - for batch request only. */
-  Q.create = function (ref, data) {
+  Q.create = function (act, data) {
     return {
       type: 1,
-      ref: ref,
+      ref: act,
       data: data
     }
   }
@@ -177,45 +177,46 @@
       data: data
     }
   }
-  Q.delete = function (ref, id, data) {
+  Q.delete = function (ref, id) {
     return {
       type: 3,
       ref: ref,
       id: id,
-      data: data
     }
   }
-  function prepQEndPoint(Q) {
-    let eP = `/${CFG.app}/_api/lists(guid'${Q.ref.$src}')/items`;
-    return Q.type === 1 ? eP : eP + `(${Q.id})`;
+
+  const URL__ITEMS = id => `/${CFG.app}/_api/lists(guid'${id}')/items`;
+
+  function prepOpnEndPoint(opn) {
+    let eP = URL__ITEMS(opn.ref.$src);
+    return opn.type === 1 ? eP : eP + `(${opn.id})`;
   }
 
-  function prepQData(Q) {
+  function prepOpnData(opn) {
     /*TODO: Add headers for UPDATE and DELETE requests.*/
-    return POST(JSON.stringify(reqItem(Q.ref.$cols, Q.data, Q.ref.$type)));
+    return POST(JSON.stringify(reqItem(opn.ref.$cols, opn.data, opn.ref.$type)));
   }
 
-  function post(Q) {
-    let q = () => fetch(prepQEndPoint(Q), prepQData(Q))
+  function postImpl(opn) {
+    let q = () => fetch(prepOpnEndPoint(opn), prepOpnData(opn))
       .then(resJSON)
-      .then(r => resItem(Object.keys(Q.ref.$cols), Object.values(Q.ref.$cols), r.d));
+      .then(r => resItem(Object.keys(opn.ref.$cols), Object.values(opn.ref.$cols), r.d));
     if (CFG.digest) return q();
     return reqDigest().then(q);
   }
 
-  Q.get = function (L, O) {
+  Q.get = function (ref, opt) {
     return fetch(
-      `/${CFG.app}/_api/lists(guid'${L.$src}')/items${optToStr(O, L.$cols)}`,
+      URL__ITEMS(ref.$src) + optToStr(opt, ref.$cols),
       GET
     )
       .then(resJSON)
-      .then(r => resItems(L.$cols, r.d.results));
+      .then(r => resItems(ref.$cols, r.d.results));
   }
 
-
-  Q.post = function (Q) {
-    if (Q.length) return
-    return post(Q);
+  Q.post = function (opn) {
+    if (opn.length) return
+    return postImpl(opn);
   }
 
   Q.config = function (cfg) {
