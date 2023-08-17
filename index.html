@@ -75,8 +75,13 @@
       Q.get(List0, {filter: `${List0.Id} eq 2379`}).then(data => console.log(data));
       Q.get(List1, {filter: `${List1.Id} eq 123`}).then(data => console.log(data));
 
-      Q.post(Q.create(List1, {Id: 777, Name: "Ben"})).then(data => console.log(data));;
+      Q.post(Q.create(List1, {Id: 777, Name: "Ben"})).then(data => console.log(data));
       
+      Q.post([
+        Q.create(List1, {Id: 1, Name: "Ben"}),
+        Q.update(List1, 323, { Name: "Johnny"}),
+        Q.delete(List1, 223)
+      ])
     </script>
   </head>
   <body></body>

@@ -24,17 +24,9 @@
       },
       body: body,
       credentials: 'include'
-    }),
-    POST__BATCH = (bID, body) => ({
-      method: 'POST',
-      headers: {
-        'Accept': 'application/json; odata=verbose',
-        'content-type': 'multipart/mixed;boundary="batch_' + bID + '"',
-        'X-RequestDigest': CFG.digest,
-      },
-      body: body,
-      credentials: 'include'
     });
+  
+  const URL__ITEMS = id => `/${CFG.app}/_api/lists(guid'${id}')/items`, URL__BATCH =  () => `/${CFG.app}/_api/$batch`;
 
   function reqDigest() {
     return fetch(`/${CFG.app}/_api/contextinfo`, POST())
@@ -48,13 +40,15 @@
         }, res.FormDigestTimeoutSeconds * 1000)
       })
   }
+  
+  const resErr = res => res.text().then(e => console.error(JSON.parse(e).error.message.value));
 
   function resJSON(res) {
     if (res.ok) {
       return res.json();
     }
     else {
-      res.text().then(e => console.error(JSON.parse(e).error.message.value))
+      resErr(res);
     }
   }
 
@@ -117,7 +111,7 @@
     return uuid;
   };
 
-  function batchImpl(ePoint, items) {
+  function batchBody(ops) {
     const bID = UUID();
     const cSID = UUID();
     const body = [
@@ -127,23 +121,59 @@
       ''
     ];
     const w = data => body.push(data);
-    for (let i = 0, iL = items.length; i < iL; i++) {
-      let item = items[i];
+    for (let i = 0, iL = ops.length; i < iL; i++) {
+      let opn = ops[i];
       w('--changeset_' + cSID);
       w('Content-Type: application/http');
       w('Content-Transfer-Encoding: binary');
       w('');
-      w('POST ' + ePoint + ' HTTP/1.1');
-      w('Content-Type: application/json;odata=verbose');
+      switch (opn.type) {
+        case 1:
+          w(`POST ${URL__ITEMS(opn.ref[SRC])} HTTP/1.1'`);
+          w('Content-Type: application/json;odata=verbose');
+          break;
+        case 2:
+          w(`MERGE ${URL__ITEMS(opn.ref[SRC])}(${opn.id}) HTTP/1.1'`);
+          w('Content-Type: application/json;odata=verbose');
+          w('Accept: application/json;odata=verbose');
+          w('IF-MATCH: *');
+          break;
+        case 3:
+          w(`DELETE ${URL__ITEMS(opn.ref[SRC])}(${opn.id}) HTTP/1.1'`);
+          w('Content-Type: application/json;odata=verbose');
+          w('Accept: application/json;odata=verbose');
+          w('IF-MATCH: *');
+        default:
+          break;
+      }
       w('');
-      w(JSON.stringify(item));
-      w('');
+      if(opn.data) {
+        w(JSON.stringify(opn.data));
+        w('');
+      }
     }
     w('--changeset_' + cSID + '--');
     w('--batch_' + bID + '--');
 
     console.log(body.join('\r\n'));
-    return POST__BATCH(bID, body.join('\r\n'));
+
+    return {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json; odata=verbose',
+        'content-type': 'multipart/mixed;boundary="batch_' + bID + '"',
+        'X-RequestDigest': CFG.digest,
+      },
+      body: body.join('\r\n'),
+      credentials: 'include'
+    };
+  }
+
+  function batchImpl(ops){
+    let q = () => fetch(URL__BATCH(), batchBody(ops))
+    .then(res => res.ok? res : resErr(res));
+    if (CFG.digest) return q();
+    return reqDigest().then(q);
   }
 
   function optToStr(opt, cols) {
@@ -164,10 +194,10 @@
   }
 
   /* qType - for batch request only. */
-  Q.create = function (act, data) {
+  Q.create = function (ref, data) {
     return {
       type: 1,
-      ref: act,
+      ref: ref,
       data: data
     }
   }
@@ -186,8 +216,6 @@
       id: id,
     }
   }
-
-  const URL__ITEMS = id => `/${CFG.app}/_api/lists(guid'${id}')/items`;
 
   function prepOpnEndPoint(opn) {
     let eP = URL__ITEMS(opn.ref[SRC]);
@@ -216,9 +244,9 @@
       .then(r => resItems(ref[COLS], r.d.results));
   }
 
-  Q.post = function (opn) {
-    if (opn.length) return
-    return postImpl(opn);
+  Q.post = function (data) {
+    if (data.length) return batchImpl(data)
+    return postImpl(data);
   }
 
   Q.config = function (cfg) {
