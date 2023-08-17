@@ -24,9 +24,10 @@
       },
       body: body,
       credentials: 'include'
-    });
-  
-  const URL__ITEMS = id => `/${CFG.app}/_api/lists(guid'${id}')/items`, URL__BATCH =  () => `/${CFG.app}/_api/$batch`;
+    }),
+    URL__ITEMS = id => `/${CFG.app}/_api/lists(guid'${id}')/items`, 
+    URL__BATCH =  () => `/${CFG.app}/_api/$batch`,
+    resErr = res => res.text().then(e => console.error(JSON.parse(e).error.message.value));
 
   function reqDigest() {
     return fetch(`/${CFG.app}/_api/contextinfo`, POST())
@@ -41,15 +42,11 @@
       })
   }
   
-  const resErr = res => res.text().then(e => console.error(JSON.parse(e).error.message.value));
+
 
   function resJSON(res) {
-    if (res.ok) {
-      return res.json();
-    }
-    else {
-      resErr(res);
-    }
+    if (res.ok) return res.json();
+    resErr(res);
   }
 
   function resItem(cKeys, cNames, item) {
@@ -155,8 +152,6 @@
     w('--changeset_' + cSID + '--');
     w('--batch_' + bID + '--');
 
-    console.log(body.join('\r\n'));
-
     return {
       method: 'POST',
       headers: {
@@ -223,7 +218,6 @@
   }
 
   function prepOpnData(opn) {
-    /*TODO: Add headers for UPDATE and DELETE requests.*/
     return POST(JSON.stringify(reqItem(opn.ref[COLS], opn.data, opn.ref[TYPE])));
   }
 
