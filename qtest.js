@@ -1,13 +1,18 @@
-let QResource;
+let QRes, QResp;
 (function () {
 
   const CFG = {
     resources: []
   };
 
-  QResource = (resource, data) => {
+  QRes = (resource, data) => {
     CFG.resources.push({resource: resource, data: data});
   }
+
+  QResp = data => {
+    return data.length? {d: {results: data}} : {d:data}
+  }
+
 
   let handleResource = (resource, options) => {
     for (const rData of CFG.resources){

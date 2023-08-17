@@ -6,6 +6,8 @@
     digest: null
   }
 
+  const COLS = Symbol('COLS'), SRC = Symbol('SRC'), TYPE = Symbol('TYPE');
+
   const
     GET = {
       method: 'GET',
@@ -62,7 +64,7 @@
       let cName = cNames[i];
       if (typeof cName === 'string')
         return res[cKey] = item[cName];
-      res[cKey] = resItems(cName[1].$cols, item[cName[0]].results)
+      res[cKey] = resItems(cName[1][COLS], item[cName[0]].results)
     });
     return res;
   }
@@ -95,7 +97,7 @@
       let exColKey = col[0];
       let exColData = col[1];
       $exp.push(col[0]);
-      Object.values(exColData.$cols).forEach(exCol => {
+      Object.values(exColData[COLS]).forEach(exCol => {
         $sel.push(`${exColKey}/${exCol}`);
       })
     })
@@ -115,7 +117,7 @@
     return uuid;
   };
 
-  function $batch(ePoint, items) {
+  function batchImpl(ePoint, items) {
     const bID = UUID();
     const cSID = UUID();
     const body = [
@@ -154,9 +156,9 @@
 
   function Q(src, cols, type) {
     return {
-      $cols: cols,
-      $src: src,
-      $type: type,
+      [COLS]: cols,
+      [SRC]: src,
+      [TYPE]: type,
       ...cols
     }
   }
@@ -188,30 +190,30 @@
   const URL__ITEMS = id => `/${CFG.app}/_api/lists(guid'${id}')/items`;
 
   function prepOpnEndPoint(opn) {
-    let eP = URL__ITEMS(opn.ref.$src);
+    let eP = URL__ITEMS(opn.ref[SRC]);
     return opn.type === 1 ? eP : eP + `(${opn.id})`;
   }
 
   function prepOpnData(opn) {
     /*TODO: Add headers for UPDATE and DELETE requests.*/
-    return POST(JSON.stringify(reqItem(opn.ref.$cols, opn.data, opn.ref.$type)));
+    return POST(JSON.stringify(reqItem(opn.ref[COLS], opn.data, opn.ref[TYPE])));
   }
 
   function postImpl(opn) {
     let q = () => fetch(prepOpnEndPoint(opn), prepOpnData(opn))
       .then(resJSON)
-      .then(r => resItem(Object.keys(opn.ref.$cols), Object.values(opn.ref.$cols), r.d));
+      .then(r => resItem(Object.keys(opn.ref[COLS]), Object.values(opn.ref[COLS]), r.d));
     if (CFG.digest) return q();
     return reqDigest().then(q);
   }
 
   Q.get = function (ref, opt) {
     return fetch(
-      URL__ITEMS(ref.$src) + optToStr(opt, ref.$cols),
+      URL__ITEMS(ref[SRC]) + optToStr(opt, ref[COLS]),
       GET
     )
       .then(resJSON)
-      .then(r => resItems(ref.$cols, r.d.results));
+      .then(r => resItems(ref[COLS], r.d.results));
   }
 
   Q.post = function (opn) {
