@@ -4,30 +4,29 @@
   const CFG = {
     app: null,
     digest: null
-  }
-
-  const COLS = Symbol('COLS'), SRC = Symbol('SRC'), TYPE = Symbol('TYPE');
-
-  const
-    GET = {
-      method: 'GET',
-      headers: { 'Accept': 'application/json; odata=verbose' },
-      credentials: 'include'
+  },
+  COLS = Symbol('COLS'), 
+  SRC = Symbol('SRC'), 
+  TYPE = Symbol('TYPE'),
+  GET = {
+    method: 'GET',
+    headers: { 'Accept': 'application/json; odata=verbose' },
+    credentials: 'include'
+  },
+  POST = body => ({
+    method: 'POST',
+    headers: {
+      'accept': 'application/json; odata=verbose',
+      'content-type': 'application/json; odata=verbose',
+      'contentType': 'application/json;charset=utf-8',
+      'X-RequestDigest': CFG.digest,
     },
-    POST = body => ({
-      method: 'POST',
-      headers: {
-        'accept': 'application/json; odata=verbose',
-        'content-type': 'application/json; odata=verbose',
-        'contentType': 'application/json;charset=utf-8',
-        'X-RequestDigest': CFG.digest,
-      },
-      body: body,
-      credentials: 'include'
-    }),
-    URL__ITEMS = id => `/${CFG.app}/_api/lists(guid'${id}')/items`, 
-    URL__BATCH =  () => `/${CFG.app}/_api/$batch`,
-    resErr = res => res.text().then(e => console.error(JSON.parse(e).error.message.value));
+    body: body,
+    credentials: 'include'
+  }),
+  URL__ITEMS = id => `/${CFG.app}/_api/lists(guid'${id}')/items`, 
+  URL__BATCH =  () => `/${CFG.app}/_api/$batch`,
+  resErr = res => res.text().then(e => console.error(JSON.parse(e).error.message.value));
 
   function reqDigest() {
     return fetch(`/${CFG.app}/_api/contextinfo`, POST())
