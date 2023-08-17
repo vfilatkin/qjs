@@ -26,7 +26,7 @@
   }),
   URL__ITEMS = id => `/${CFG.app}/_api/lists(guid'${id}')/items`, 
   URL__BATCH =  () => `/${CFG.app}/_api/$batch`,
-  resErr = res => res.text().then(e => console.error(JSON.parse(e).error.message.value));
+  ERR = res => res.text().then(e => console.error(JSON.parse(e).error.message.value));
 
   function reqDigest() {
     return fetch(`/${CFG.app}/_api/contextinfo`, POST())
@@ -41,11 +41,9 @@
       })
   }
   
-
-
   function resJSON(res) {
     if (res.ok) return res.json();
-    resErr(res);
+    ERR(res);
   }
 
   function resItem(cKeys, cNames, item) {
@@ -77,6 +75,15 @@
 
   function reqItems(cols, items, type) {
     return items.map(item => reqItem(cols, item, type))
+  }
+
+  function prepOpnEndPoint(opn) {
+    let eP = URL__ITEMS(opn.ref[SRC]);
+    return opn.type === 1 ? eP : eP + `(${opn.id})`;
+  }
+
+  function prepOpnData(opn) {
+    return JSON.stringify(reqItem(opn.ref[COLS], opn.data, opn.ref[TYPE]));
   }
 
   function $select(cols) {
@@ -144,7 +151,7 @@
       }
       w('');
       if(opn.data) {
-        w(JSON.stringify(opn.data));
+        w(prepOpnData(opn));
         w('');
       }
     }
@@ -165,7 +172,7 @@
 
   function batchImpl(ops){
     let q = () => fetch(URL__BATCH(), batchBody(ops))
-    .then(res => res.ok? res : resErr(res));
+    .then(res => res.ok? res : ERR(res));
     if (CFG.digest) return q();
     return reqDigest().then(q);
   }
@@ -211,17 +218,8 @@
     }
   }
 
-  function prepOpnEndPoint(opn) {
-    let eP = URL__ITEMS(opn.ref[SRC]);
-    return opn.type === 1 ? eP : eP + `(${opn.id})`;
-  }
-
-  function prepOpnData(opn) {
-    return POST(JSON.stringify(reqItem(opn.ref[COLS], opn.data, opn.ref[TYPE])));
-  }
-
   function postImpl(opn) {
-    let q = () => fetch(prepOpnEndPoint(opn), prepOpnData(opn))
+    let q = () => fetch(prepOpnEndPoint(opn), POST(prepOpnData(opn)))
       .then(resJSON)
       .then(r => resItem(Object.keys(opn.ref[COLS]), Object.values(opn.ref[COLS]), r.d));
     if (CFG.digest) return q();
