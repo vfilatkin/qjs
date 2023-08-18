@@ -5,28 +5,29 @@
     app: null,
     digest: null
   },
-  COLS = Symbol('COLS'), 
-  SRC = Symbol('SRC'), 
-  TYPE = Symbol('TYPE'),
-  GET = {
-    method: 'GET',
-    headers: { 'Accept': 'application/json; odata=verbose' },
-    credentials: 'include'
-  },
-  POST = body => ({
-    method: 'POST',
-    headers: {
-      'accept': 'application/json; odata=verbose',
-      'content-type': 'application/json; odata=verbose',
-      'contentType': 'application/json;charset=utf-8',
-      'X-RequestDigest': CFG.digest,
+    COLS = Symbol('COLS'),
+    SRC = Symbol('SRC'),
+    TYPE = Symbol('TYPE'),
+    GET = {
+      method: 'GET',
+      headers: { 'Accept': 'application/json; odata=verbose' },
+      credentials: 'include'
     },
-    body: body,
-    credentials: 'include'
-  }),
-  URL__ITEMS = id => `/${CFG.app}/_api/lists(guid'${id}')/items`, 
-  URL__BATCH =  () => `/${CFG.app}/_api/$batch`,
-  ERR = res => res.text().then(e => console.error(JSON.parse(e).error.message.value));
+    POST = (body, type) => ({
+      method: type === 1 ? 'POST' : type === 2 ? 'MERGE' : 'DELETE',
+      headers: {
+        'accept': 'application/json; odata=verbose',
+        'content-type': 'application/json; odata=verbose',
+        'contentType': 'application/json;charset=utf-8',
+        'X-RequestDigest': CFG.digest,
+        ...(type > 1 && { 'IF-MATCH': '*' })
+      },
+      body: body,
+      credentials: 'include'
+    }),
+    URL__ITEMS = id => `/${CFG.app}/_api/lists(guid'${id}')/items`,
+    URL__BATCH = () => `/${CFG.app}/_api/$batch`,
+    ERR = res => res.text().then(e => console.error(JSON.parse(e).error.message.value));
 
   function reqDigest() {
     return fetch(`/${CFG.app}/_api/contextinfo`, POST())
@@ -40,7 +41,7 @@
         }, res.FormDigestTimeoutSeconds * 1000)
       })
   }
-  
+
   function resJSON(res) {
     if (res.ok) return res.json();
     ERR(res);
@@ -83,7 +84,7 @@
   }
 
   function prepOpnData(opn) {
-    return JSON.stringify(reqItem(opn.ref[COLS], opn.data, opn.ref[TYPE]));
+    return opn.data && JSON.stringify(reqItem(opn.ref[COLS], opn.data, opn.ref[TYPE]));
   }
 
   function $select(cols) {
@@ -125,24 +126,24 @@
     ];
     const w = data => body.push(data);
     for (let i = 0, iL = ops.length; i < iL; i++) {
-      let opn = ops[i];
+      let opn = ops[i], ref = opn.ref;
       w('--changeset_' + cSID);
       w('Content-Type: application/http');
       w('Content-Transfer-Encoding: binary');
       w('');
       switch (opn.type) {
         case 1:
-          w(`POST ${URL__ITEMS(opn.ref[SRC])} HTTP/1.1'`);
+          w(`POST ${URL__ITEMS(ref[SRC])} HTTP/1.1`);
           w('Content-Type: application/json;odata=verbose');
           break;
         case 2:
-          w(`MERGE ${URL__ITEMS(opn.ref[SRC])}(${opn.id}) HTTP/1.1'`);
+          w(`MERGE ${URL__ITEMS(ref[SRC])}(${opn.id}) HTTP/1.1`);
           w('Content-Type: application/json;odata=verbose');
           w('Accept: application/json;odata=verbose');
           w('IF-MATCH: *');
           break;
         case 3:
-          w(`DELETE ${URL__ITEMS(opn.ref[SRC])}(${opn.id}) HTTP/1.1'`);
+          w(`DELETE ${URL__ITEMS(ref[SRC])}(${opn.id}) HTTP/1.1`);
           w('Content-Type: application/json;odata=verbose');
           w('Accept: application/json;odata=verbose');
           w('IF-MATCH: *');
@@ -150,7 +151,7 @@
           break;
       }
       w('');
-      if(opn.data) {
+      if (opn.data) {
         w(prepOpnData(opn));
         w('');
       }
@@ -170,9 +171,39 @@
     };
   }
 
-  function batchImpl(ops){
+  function rProp(str) {
+    return str.split(':')[1].trim()
+  }
+
+  function batchResData(bRes, ops) {
+    let boundary = bRes.substring(0, 52);
+    bRes = bRes.split(boundary);
+    bRes = bRes.slice(1, bRes.length - 1);
+    return ops.map((opn,i) => {
+      let
+        res = bRes[i].split(/\r\n/g),
+        resData = {
+          status: (res[4] = res[4].split(/\s/g), { protocol: res[4][0], code: +res[4][1]}),
+          contentType: rProp(res[5]),
+        };
+      switch (opn.type) {
+        case 1:
+          resData.eTag = rProp(res[6]);
+          resData.location = rProp(res[7]);
+          resData.body = rProp(res[9]);
+          break;
+        case 2:
+          resData.eTag = rProp(res[6]);
+          break;
+      }
+      return resData;
+    })
+  }
+
+  function batchImpl(ops) {
     let q = () => fetch(URL__BATCH(), batchBody(ops))
-    .then(res => res.ok? res : ERR(res));
+      .then(res => res.ok ? res.text() : ERR(res))
+      .then(text => batchResData(text, ops));
     if (CFG.digest) return q();
     return reqDigest().then(q);
   }
@@ -219,7 +250,7 @@
   }
 
   function postImpl(opn) {
-    let q = () => fetch(prepOpnEndPoint(opn), POST(prepOpnData(opn)))
+    let q = () => fetch(prepOpnEndPoint(opn), POST(prepOpnData(opn), opn.type))
       .then(resJSON)
       .then(r => resItem(Object.keys(opn.ref[COLS]), Object.values(opn.ref[COLS]), r.d));
     if (CFG.digest) return q();
