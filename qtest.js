@@ -5,6 +5,22 @@ let QRes, QResp;
     resources: []
   };
 
+  const DATABASE = {};
+
+  function handleURLParams(url){
+    let params = {};
+    Array.from(url.searchParams.entries()).forEach(p => params[p[0]] = p[1])
+    return params;
+  }
+
+  function handleURL(url){
+    try { url = new URL(url); } catch { url = new URL('http://local' + url); };
+    return {
+      url: url,
+      params: handleURLParams(url)
+    }
+  }
+
   QRes = (resource, data) => {
     CFG.resources.push({resource: resource, data: data});
   }
@@ -12,7 +28,6 @@ let QRes, QResp;
   QResp = data => {
     return data.length? {d: {results: data}} : {d:data}
   }
-
 
   let handleResource = (resource, options) => {
     for (const rData of CFG.resources){
@@ -29,10 +44,13 @@ let QRes, QResp;
   }
 
   let response = (resource, options) => {
-    console.log(resource, options);
+    console.log('URL:', resource);
+    console.log('OPTIONS:', options);
+    console.log('URL_ODATA:', handleURL(resource));
     return { 
       ok: true, 
-      json: () => getData(resource, options) 
+      json: () => getData(resource, options),
+      text: () => getData(resource, options)
     }
   }
 
