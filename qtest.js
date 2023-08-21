@@ -1,15 +1,11 @@
 let QRes, QResp;
 (function () {
-  const CFG = {
-    resources: []
-  };
-
   const DATABASE = {};
 
   function URLParams(url){
     let params = {};
     Array.from(url.searchParams.entries()).forEach(p => params[p[0]] = p[1])
-    return params;
+    return Object.keys(params).length > 0? params : false;
   }
 
   function URLEndpoint(url){
@@ -25,9 +21,11 @@ let QRes, QResp;
   }
 
   const contextinfo = {
-    GetContextWebInformation: {
-      FormDigestValue: 'VERY__UNIQUE__DIGEST__VALUE',
-      FormDigestTimeoutSeconds: 1800
+    d:{
+      GetContextWebInformation: {
+        FormDigestValue: 'VERY__UNIQUE__DIGEST__VALUE',
+        FormDigestTimeoutSeconds: 1800
+      }
     }
   }
 
@@ -35,8 +33,13 @@ let QRes, QResp;
     return DATABASE[endpoint.split(/\'/g)[1]];
   }
 
-  function handleListQuery(list, url){
-    if(url.endpoint[1] === 'items') return list.data;
+  function handleListQuery(list, url, data){
+    let endpoint = url.endpoint[1];
+    if(data.method === 'GET'){
+      if(!url.params)
+        if(endpoint === 'items') return {d:{results:list.data}};
+      return {d:{results:list.data}};
+    }
   }
 
   function handleEndpoint(url, data){
@@ -48,25 +51,11 @@ let QRes, QResp;
       case '$batch':
         return console.warn('$batch is not implemented yet.')
       default:
-        return handleListQuery(tryGetList(endpoint[0]), url) 
+        return handleListQuery(tryGetList(endpoint[0]), url, data) 
     }
   }
 
-  QRes = (resource, data) => {
-    CFG.resources.push({resource: resource, data: data});
-  }
-
-  QResp = data => {
-    return data.length? {d: {results: data}} : {d:data}
-  }
-
-  let handleResource = (resource, options) => {
-    for (const rData of CFG.resources){
-      if (rData.resource(resource, options)) return rData.data();
-    }
-  }
-
-  let getData = (resource, options) => handleResource(resource, options);
+  let getData = (resource, options) => handleEndpoint(resource, options);
 
   function delay(ms) { 
     return new Promise((resolve, reject) => { 
@@ -75,7 +64,6 @@ let QRes, QResp;
   }
 
   function response(resource, options) {
-    console.log('RESPONSE:', handleEndpoint(resource, options))
     return { 
       ok: true, 
       json: () => getData(resource, options),
@@ -88,7 +76,7 @@ let QRes, QResp;
     Object.keys(ref.cols).forEach(key => {
       let col = ref.cols[key];
       if(typeof col === 'string') return entry[col] = item[key];
-      return entry[col[0]] = toItems(col[1], item[key])
+      return entry[col[0]] = {results: toItems(col[1], item[key])}
     });
     return entry;
   }
@@ -102,6 +90,13 @@ let QRes, QResp;
       Q.fill = function (ref, items) {
         items = toItems(ref, items)
         DATABASE[ref.src] = {ref: ref, type: ref.type, data: items};
+      }
+      Q.replicate = function(count, item){
+        let arr = [];
+        for(let i = 0; i < count; i++){
+          arr.push(item(i))
+        }
+        return arr;
       }
     } else {
       throw '[QTest.js]: Q.js was not initialized.'

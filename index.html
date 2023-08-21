@@ -4,49 +4,6 @@
     <script src="q.js"></script>
     <script src="qtest.js"></script>
     <script>
-      /* Setup test resources */
-      const LIST0__URL = 
-      "/myApp/_api/lists(guid'List0-UnreadableId')" +
-      "/items?$filter=ID eq 2379&$select=ID,OData_" +
-      "List0_UnreadableColumnName,OData_List0_Unre" +
-      "adableExpandedColumnName/ID,OData_List0_Unr" +
-      "eadableExpandedColumnName/OData_List1_Unrea" +
-      "dableColumnName&$expand=OData_List0_Unreada" +
-      "bleExpandedColumnName";
-
-      const LIST1__URL = 
-      "/myApp/_api/lists(guid'List1-UnreadableId')" +
-      "/items?$filter=ID eq 123&$select=ID,OData_" +
-      "List1_UnreadableColumnName";
-
-      const LIST1__POST__URL =  "/myApp/_api/lists(guid'List1-UnreadableId')/items"
-
-      const CONTEXT__URL = '/myApp/_api/contextinfo';
-      
-      QRes(res => res === CONTEXT__URL, () => QResp({
-        GetContextWebInformation: {
-          FormDigestValue: 'bqtoYJgeiMgRtiDW',
-          FormDigestTimeoutSeconds: 1800
-        }
-      }))
-      
-      QRes(res => res === LIST0__URL, () => QResp([
-        {
-          ID: 2379,
-          OData_List0_UnreadableColumnName: "Bob",
-          OData_List0_UnreadableExpandedColumnName: { 
-            results: [
-              { ID: 123, OData_List1_UnreadableColumnName: "Alice" },
-              { ID: 223, OData_List1_UnreadableColumnName: "Eve" },
-              { ID: 323, OData_List1_UnreadableColumnName: "John" }
-            ] 
-          }
-        }
-      ]));
-
-      QRes(res => res === LIST1__URL, () => QResp([ {ID: 123,  OData_List1_UnreadableColumnName: "Alice" } ]));
-
-      QRes(res => res === LIST1__POST__URL, () => QResp({ID: 777, OData_List1_UnreadableColumnName: "Ben"}));
 
       /* Configuration */
       Q.config({app: 'myApp'});
@@ -71,9 +28,11 @@
         },
         'SP.Data.List0ListItem'
       );
+      
+      /* Test data */
+      Q.fill(List1, Q.replicate(200, i => ({Id: i, Name: 'NAME' + i})));
+      Q.fill(List0, Q.replicate(200, i => ({Id: i, Name: 'NAME' + i, Expanded: Q.replicate(5, i => ({Id: i, Name: 'NAME' + i}))})));
 
-      Q.fill(List1, [{Id:'ID', Name: 'NAME'}]);
-      Q.fill(List0, [{Id:'ID', Name: 'NAME', Expanded: []}]);
 
       Q.get(List0, {filter: `${List0.Id} eq 2379`}).then(data => console.log(data));
       Q.get(List1, {filter: `${List1.Id} eq 123`}).then(data => console.log(data));
