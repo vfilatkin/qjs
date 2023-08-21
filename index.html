@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <script src="qtest.js"></script>
     <script src="q.js"></script>
+    <script src="qtest.js"></script>
     <script>
       /* Setup test resources */
       const LIST0__URL = 
@@ -71,6 +71,9 @@
         },
         'SP.Data.List0ListItem'
       );
+
+      Q.fill(List1, [{Id:'ID', Name: 'NAME'}]);
+      Q.fill(List0, [{Id:'ID', Name: 'NAME', Expanded: []}]);
 
       Q.get(List0, {filter: `${List0.Id} eq 2379`}).then(data => console.log(data));
       Q.get(List1, {filter: `${List1.Id} eq 123`}).then(data => console.log(data));

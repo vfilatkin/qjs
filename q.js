@@ -5,29 +5,26 @@
     app: null,
     digest: null
   },
-    COLS = Symbol('COLS'),
-    SRC = Symbol('SRC'),
-    TYPE = Symbol('TYPE'),
-    GET = {
-      method: 'GET',
-      headers: { 'Accept': 'application/json; odata=verbose' },
-      credentials: 'include'
+  GET = {
+    method: 'GET',
+    headers: { 'Accept': 'application/json; odata=verbose' },
+    credentials: 'include'
+  },
+  POST = (body, type) => ({
+    method: type === 1 ? 'POST' : type === 2 ? 'MERGE' : 'DELETE',
+    headers: {
+      'accept': 'application/json; odata=verbose',
+      'content-type': 'application/json; odata=verbose',
+      'contentType': 'application/json;charset=utf-8',
+      'X-RequestDigest': CFG.digest,
+      ...(type > 1 && { 'IF-MATCH': '*' })
     },
-    POST = (body, type) => ({
-      method: type === 1 ? 'POST' : type === 2 ? 'MERGE' : 'DELETE',
-      headers: {
-        'accept': 'application/json; odata=verbose',
-        'content-type': 'application/json; odata=verbose',
-        'contentType': 'application/json;charset=utf-8',
-        'X-RequestDigest': CFG.digest,
-        ...(type > 1 && { 'IF-MATCH': '*' })
-      },
-      body: body,
-      credentials: 'include'
-    }),
-    URL__ITEMS = id => `/${CFG.app}/_api/lists(guid'${id}')/items`,
-    URL__BATCH = () => `/${CFG.app}/_api/$batch`,
-    ERR = res => res.text().then(e => console.error(JSON.parse(e).error.message.value));
+    body: body,
+    credentials: 'include'
+  }),
+  URL__ITEMS = id => `/${CFG.app}/_api/lists(guid'${id}')/items`,
+  URL__BATCH = () => `/${CFG.app}/_api/$batch`,
+  ERR = res => res.text().then(e => console.error(JSON.parse(e).error.message.value));
 
   function reqDigest() {
     return fetch(`/${CFG.app}/_api/contextinfo`, POST())
@@ -53,7 +50,7 @@
       let cName = cNames[i];
       if (typeof cName === 'string')
         return res[cKey] = item[cName];
-      res[cKey] = resItems(cName[1][COLS], item[cName[0]].results)
+      res[cKey] = resItems(cName[1].cols, item[cName[0]].results)
     });
     return res;
   }
@@ -79,12 +76,12 @@
   }
 
   function prepOpnEndPoint(opn) {
-    let eP = URL__ITEMS(opn.ref[SRC]);
+    let eP = URL__ITEMS(opn.ref.src);
     return opn.type === 1 ? eP : eP + `(${opn.id})`;
   }
 
   function prepOpnData(opn) {
-    return opn.data && JSON.stringify(reqItem(opn.ref[COLS], opn.data, opn.ref[TYPE]));
+    return opn.data && JSON.stringify(reqItem(opn.ref.cols, opn.data, opn.ref.type));
   }
 
   function $select(cols) {
@@ -95,7 +92,7 @@
       let exColKey = col[0];
       let exColData = col[1];
       $exp.push(col[0]);
-      Object.values(exColData[COLS]).forEach(exCol => {
+      Object.values(exColData.cols).forEach(exCol => {
         $sel.push(`${exColKey}/${exCol}`);
       })
     })
@@ -133,17 +130,17 @@
       w('');
       switch (opn.type) {
         case 1:
-          w(`POST ${URL__ITEMS(ref[SRC])} HTTP/1.1`);
+          w(`POST ${URL__ITEMS(ref.src)} HTTP/1.1`);
           w('Content-Type: application/json;odata=verbose');
           break;
         case 2:
-          w(`MERGE ${URL__ITEMS(ref[SRC])}(${opn.id}) HTTP/1.1`);
+          w(`MERGE ${URL__ITEMS(ref.src)}(${opn.id}) HTTP/1.1`);
           w('Content-Type: application/json;odata=verbose');
           w('Accept: application/json;odata=verbose');
           w('IF-MATCH: *');
           break;
         case 3:
-          w(`DELETE ${URL__ITEMS(ref[SRC])}(${opn.id}) HTTP/1.1`);
+          w(`DELETE ${URL__ITEMS(ref.src)}(${opn.id}) HTTP/1.1`);
           w('Content-Type: application/json;odata=verbose');
           w('Accept: application/json;odata=verbose');
           w('IF-MATCH: *');
@@ -218,9 +215,9 @@
 
   function Q(src, cols, type) {
     return {
-      [COLS]: cols,
-      [SRC]: src,
-      [TYPE]: type,
+      cols: cols,
+      src: src,
+      type: type,
       ...cols
     }
   }
@@ -252,18 +249,18 @@
   function postImpl(opn) {
     let q = () => fetch(prepOpnEndPoint(opn), POST(prepOpnData(opn), opn.type))
       .then(resJSON)
-      .then(r => resItem(Object.keys(opn.ref[COLS]), Object.values(opn.ref[COLS]), r.d));
+      .then(r => resItem(Object.keys(opn.ref.cols), Object.values(opn.ref.cols), r.d));
     if (CFG.digest) return q();
     return reqDigest().then(q);
   }
 
   Q.get = function (ref, opt) {
     return fetch(
-      URL__ITEMS(ref[SRC]) + optToStr(opt, ref[COLS]),
+      URL__ITEMS(ref.src) + optToStr(opt, ref.cols),
       GET
     )
       .then(resJSON)
-      .then(r => resItems(ref[COLS], r.d.results));
+      .then(r => resItems(ref.cols, r.d.results));
   }
 
   Q.post = function (data) {
