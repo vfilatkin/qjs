@@ -28,10 +28,10 @@
         },
         'SP.Data.List0ListItem'
       );
-      
+
       /* Test data */
-      Q.fill(List1, Q.replicate(200, i => ({Id: i, Name: 'NAME' + i})));
-      Q.fill(List0, Q.replicate(200, i => ({Id: i, Name: 'NAME' + i, Expanded: Q.replicate(5, i => ({Id: i, Name: 'NAME' + i}))})));
+      Q.fill(List1, Q.replicate(1, i => ({Id: i, Name: 'NAME' + i})));
+      Q.fill(List0, Q.replicate(1, i => ({Id: i, Name: 'NAME' + i, Expanded: Q.replicate(5, i => ({Id: i, Name: 'NAME' + i}))})));
 
 
       Q.get(List0, {filter: `${List0.Id} eq 2379`}).then(data => console.log(data));

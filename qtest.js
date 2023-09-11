@@ -49,7 +49,7 @@ let QRes, QResp;
       case 'contextinfo':
         return contextinfo;
       case '$batch':
-        return console.warn('$batch is not implemented yet.')
+        return console.warn('[QTest.js]: $batch is not implemented yet.')
       default:
         return handleListQuery(tryGetList(endpoint[0]), url, data) 
     }
@@ -64,7 +64,7 @@ let QRes, QResp;
   }
 
   function response(resource, options) {
-    return { 
+    return {
       ok: true, 
       json: () => getData(resource, options),
       text: () => getData(resource, options)
